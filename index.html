@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dijkstra Maze Pathfinder</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+ :root {
+ --bg: #0a0c10;
+ --surface: #111318;
+ --panel: #161a22;
+ --border: #1e2530;
+ --accent: #00d4ff;
+ --accent2: #ff6b35;
+ --green: #39ff7a;
+ --yellow: #ffd166;
+ --purple: #b06cfb;
+ --wall: #2a3140;
+ --text: #c8d4e8;
+ --muted: #4a5568;
+ --font-mono: 'Space Mono', monospace;
+ --font-disp: 'Orbitron', sans-serif;
+ }
+ * { box-sizing: border-box; margin: 0; padding: 0; }
+ body {
+ background: var(--bg);
+ color: var(--text);
+ font-family: var(--font-mono);
+ min-height: 100vh;
+ overflow-x: hidden;
+ }
+ body::before {
+ content: '';
+ position: fixed;
+ inset: 0;
+ background-image:
+ linear-gradient(rgba(0,212,255,.03) 1px, transparent 1px),
+ linear-gradient(90deg, rgba(0,212,255,.03) 1px, transparent 1px);
+ background-size: 40px 40px;
+ pointer-events: none;
+ z-index: 0;
+ }
+ .wrapper {
+ position: relative;
+ z-index: 1;
+ max-width: 1000px;
+ margin: 0 auto;
+ padding: 24px 16px 32px;
+ }
+ header {
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ margin-bottom: 20px;
+ flex-wrap: wrap;
+ gap: 10px;
+ }
+ .logo {
+ font-family: var(--font-disp);
+ font-size: 20px;
+ font-weight: 900;
+ color: var(--accent);
+ letter-spacing: 2px;
+ text-shadow: 0 0 20px rgba(0,212,255,.5);
+ }
+ .logo span { color: var(--accent2); }
+ .badge {
+ font-size: 10px;
+ font-family: var(--font-mono);
+ background: rgba(0,212,255,.1);
+ border: 1px solid rgba(0,212,255,.3);
+ color: var(--accent);
+ padding: 3px 10px;
+ border-radius: 20px;
+ letter-spacing: 2px;
+ text-transform: uppercase;
+ }
+ .toolbar {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 8px;
+ margin-bottom: 14px;
+ align-items: center;
+ }
+ .toolbar-group {
+ display: flex;
+ gap: 6px;
+ align-items: center;
+ background: var(--surface);
+ border: 1px solid var(--border);
+ border-radius: 10px;
+ padding: 6px 8px;
+ }
+ .group-label {
+ font-size: 9px;
+ color: var(--muted);
+ letter-spacing: 1.5px;
+ text-transform: uppercase;
+ padding-right: 4px;
+ border-right: 1px solid var(--border);
+ margin-right: 2px;
+ }
+ button {
+ font-family: var(--font-mono);
+ font-size: 11px;
+ padding: 6px 13px;
+ border-radius: 7px;
+ border: 1px solid var(--border);
+ background: var(--panel);
+ color: var(--text);
+ cursor: pointer;
+ transition: all .15s;
+ letter-spacing: .5px;
+ position: relative;
+ overflow: hidden;
+ }
+ button::after {
+ content: '';
+ position: absolute;
+ inset: 0;
+ background: linear-gradient(135deg, rgba(255,255,255,.05) 0%, transparent 60%);
+ pointer-events: none;
+ }
+ button:hover { background: #1e2530; border-color: var(--accent); color: var(--accent); }
+ button.active-wall { background: rgba(42,49,64,.8); border-color: var(--wall); color: #8899bb; box-shadow: 0 0 10px rgba(42,49,64,.5); }
+ button.active-start { background: rgba(0,212,255,.15); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 12px rgba(0,212,255,.3); }
+ button.active-end { background: rgba(255,107,53,.15); border-color: var(--accent2); color: var(--accent2); box-shadow: 0 0 12px rgba(255,107,53,.3); }
+ button.active-erase { background: rgba(176,108,251,.15); border-color: var(--purple); color: var(--purple); box-shadow: 0 0 12px rgba(176,108,251,.3); }
+ button.btn-run {
+ background: linear-gradient(135deg, rgba(57,255,122,.2), rgba(0,212,255,.1));
+ border-color: var(--green);
+ color: var(--green);
+ font-weight: 700;
+ }
+ button.btn-run:hover { box-shadow: 0 0 20px rgba(57,255,122,.4); }
+ button.btn-maze {
+ background: linear-gradient(135deg, rgba(255,209,102,.15), rgba(255,107,53,.1));
+ border-color: var(--yellow);
+ color: var(--yellow);
+ }
+ button.btn-maze:hover { box-shadow: 0 0 20px rgba(255,209,102,.3); }
+ button.btn-reset {
+ background: rgba(255,50,50,.08);
+ border-color: rgba(255,80,80,.4);
+ color: rgba(255,120,120,.9);
+ }
+ button.btn-reset:hover { box-shadow: 0 0 14px rgba(255,80,80,.25); }
+ .stats {
+ display: flex;
+ gap: 14px;
+ flex-wrap: wrap;
+ margin-bottom: 12px;
+ }
+ .stat-card {
+ background: var(--surface);
+ border: 1px solid var(--border);
+ border-radius: 8px;
+ padding: 8px 14px;
+ display: flex;
+ flex-direction: column;
+ gap: 2px;
+ min-width: 90px;
+ }
+ .stat-label { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+ .stat-val { font-size: 18px; font-weight: 700; color: var(--text); font-family: var(--font-disp); transition: color .3s; }
+ .stat-val.highlight { color: var(--green); text-shadow: 0 0 10px rgba(57,255,122,.5); }
+ .legend {
+ display: flex;
+ flex-wrap: wrap;
+ gap: 10px;
+ margin-bottom: 12px;
+ font-size: 10px;
+ color: var(--muted);
+ align-items: center;
+ letter-spacing: .5px;
+ }
+ .leg { display: flex; align-items: center; gap: 5px; }
+ .leg-dot {
+ width: 11px; height: 11px; border-radius: 3px;
+ box-shadow: 0 0 6px var(--c, transparent);
+ }
+ .canvas-wrap {
+ position: relative;
+ border-radius: 14px;
+ overflow: hidden;
+ border: 1px solid var(--border);
+ box-shadow: 0 0 40px rgba(0,0,0,.6), 0 0 0 1px rgba(0,212,255,.05);
+ }
+ canvas {
+ display: block;
+ width: 100%;
+ cursor: crosshair;
+ }
+ .scan-line {
+ position: absolute;
+ top: 0; left: 0; right: 0;
+ height: 2px;
+ background: linear-gradient(90deg, transparent, var(--accent), transparent);
+ opacity: 0;
+ pointer-events: none;
+ transition: none;
+ }
+ .scan-line.active {
+ opacity: 1;
+ animation: scan 1.5s linear infinite;
+ }
+ @keyframes scan {
+ from { top: 0; }
+ to { top: 100%; }
+ }
+ #msg {
+ margin-top: 10px;
+ font-size: 11px;
+ color: var(--muted);
+ letter-spacing: .5px;
+ min-height: 18px;
+ padding-left: 2px;
+ transition: color .3s;
+ }
+ #msg.success { color: var(--green); }
+ #msg.error { color: var(--accent2); }
+ #msg.info { color: var(--accent); }
+ .speed-wrap {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ font-size: 10px;
+ color: var(--muted);
+ }
+ input[type=range] {
+ -webkit-appearance: none;
+ width: 90px; height: 4px;
+ background: var(--border);
+ border-radius: 2px;
+ outline: none;
+ cursor: pointer;
+ }
+ input[type=range]::-webkit-slider-thumb {
+ -webkit-appearance: none;
+ width: 12px; height: 12px;
+ border-radius: 50%;
+ background: var(--accent);
+ box-shadow: 0 0 6px var(--accent);
+ }
+</style>
+</head>
+<body>
+<div class="wrapper">
+ <header>
+ <div class="logo">MAZE<span>PATH</span></div>
+ <div class="badge">Dijkstra Algorithm</div>
+ </header>
+ <div class="toolbar">
+ <div class="toolbar-group">
+ <span class="group-label">Draw</span>
+ <button id="bWall" onclick="setMode('wall')">&#9632; Wall</button>
+ <button id="bErase" onclick="setMode('erase')">&#9633; Erase</button>
+ </div>
+ <div class="toolbar-group">
+ <span class="group-label">Place</span>
+ <button id="bStart" onclick="setMode('start')">&#9689; Start</button>
+ <button id="bEnd" onclick="setMode('end')">&#9678; End</button>
+ </div>
+ <div class="toolbar-group">
+ <span class="group-label">Speed</span>
+ <div class="speed-wrap">
+ <span>Slow</span>
+ <input type="range" id="speedSlider" min="1" max="20" value="8">
+ <span>Fast</span>
+ </div>
+ </div>
+ <button class="btn-run" onclick="runDijkstra()">&#9654; FIND PATH</button>
+ <button class="btn-maze" onclick="generateMaze()">&#10782; GEN MAZE</button>
+ <button class="btn-reset" onclick="resetGrid()">&#10006; RESET</button>
+ </div>
+ <div class="stats">
+ <div class="stat-card">
+ <div class="stat-label">Visited</div>
+ <div class="stat-val" id="sVis">0</div>
+ </div>
+ <div class="stat-card">
+ <div class="stat-label">Path Len</div>
+ <div class="stat-val" id="sPth">&#8212;</div>
+ </div>
+ <div class="stat-card">
+ <div class="stat-label">Cost</div>
+ <div class="stat-val" id="sCst">&#8212;</div>
+ </div>
+ <div class="stat-card">
+ <div class="stat-label">Status</div>
+ <div class="stat-val" id="sStatus" style="font-size:11px;color:var(--muted);padding-top:4px">IDLE</div>
+ </div>
+ </div>
+ <div class="legend">
+ <div class="leg"><div class="leg-dot" style="background:#00d4ff;--c:#00d4ff"></div>Start</div>
+ <div class="leg"><div class="leg-dot" style="background:#ff6b35;--c:#ff6b35"></div>End</div>
+ <div class="leg"><div class="leg-dot" style="background:#2a3140"></div>Wall</div>
+ <div class="leg"><div class="leg-dot" style="background:#1a3a4a"></div>Frontier</div>
+ <div class="leg"><div class="leg-dot" style="background:#0d2a36;border:1px solid #00d4ff33"></div>Visited</div>
+ <div class="leg"><div class="leg-dot" style="background:#ffd166;--c:#ffd166"></div>Path</div>
+ </div>
+ <div class="canvas-wrap">
+ <div class="scan-line" id="scanLine"></div>
+ <canvas id="canvas" width="960" height="560"></canvas>
+ </div>
+ <div id="msg">Click or drag to draw walls &middot; Place Start &amp; End &middot; Hit FIND PATH</div>
+</div>
+<script>
+const C = document.getElementById('canvas');
+const ctx = C.getContext('2d');
+const COLS = 48, ROWS = 28;
+const CW = C.width / COLS, RH = C.height / ROWS;
+const EMPTY=0, WALL=1, START=2, END=3, VISITED=4, PATH=5, FRONTIER=6;
+let grid = [], mode = 'wall', running = false, mouseDown = false;
+let startCell = {r:4, c:4}, endCell = {r:ROWS-5, c:COLS-5};
+
+function initGrid() {
+ grid = Array.from({length: ROWS}, () => Array(COLS).fill(EMPTY));
+ grid[startCell.r][startCell.c] = START;
+ grid[endCell.r][endCell.c] = END;
+ document.getElementById('sVis').textContent = '0';
+ document.getElementById('sPth').textContent = '\u2014';
+ document.getElementById('sCst').textContent = '\u2014';
+ setStatus('IDLE', '#4a5568');
+}
+
+function setStatus(txt, color) {
+ const el = document.getElementById('sStatus');
+ el.textContent = txt;
+ el.style.color = color || 'var(--muted)';
+}
+
+function getColor(type) {
+ switch(type) {
+ case WALL: return '#1e2838';
+ case START: return null;
+ case END: return null;
+ case VISITED: return '#0b2230';
+ case FRONTIER: return '#0d2e42';
+ case PATH: return '#ffd166';
+ default: return '#0c0f14';
+ }
+}
+
+function drawCell(r, c, type) {
+ const x = c * CW, y = r * RH;
+ const w = CW, h = RH;
+ ctx.clearRect(x, y, w, h);
+ if (type === EMPTY) {
+ ctx.fillStyle = '#0c0f14';
+ ctx.fillRect(x, y, w, h);
+ ctx.strokeStyle = 'rgba(0,212,255,0.04)';
+ ctx.lineWidth = 0.5;
+ ctx.strokeRect(x + 0.25, y + 0.25, w - 0.5, h - 0.5);
+ return;
+ }
+ if (type === WALL) {
+ ctx.fillStyle = '#1a2030';
+ ctx.fillRect(x, y, w, h);
+ ctx.fillStyle = 'rgba(0,0,0,.3)';
+ ctx.fillRect(x + w * 0.08, y + h * 0.08, w * 0.84, h * 0.84);
+ return;
+ }
+ if (type === START) {
+ ctx.fillStyle = '#0c0f14';
+ ctx.fillRect(x, y, w, h);
+ const grd = ctx.createRadialGradient(x+w/2,y+h/2,0, x+w/2,y+h/2,w*.8);
+ grd.addColorStop(0, 'rgba(0,212,255,.4)');
+ grd.addColorStop(1, 'transparent');
+ ctx.fillStyle = grd;
+ ctx.fillRect(x, y, w, h);
+ ctx.beginPath();
+ ctx.arc(x+w/2, y+h/2, w*.28, 0, Math.PI*2);
+ ctx.fillStyle = '#00d4ff';
+ ctx.fill();
+ ctx.beginPath();
+ ctx.arc(x+w/2, y+h/2, w*.12, 0, Math.PI*2);
+ ctx.fillStyle = '#fff';
+ ctx.fill();
+ return;
+ }
+ if (type === END) {
+ ctx.fillStyle = '#0c0f14';
+ ctx.fillRect(x, y, w, h);
+ const grd = ctx.createRadialGradient(x+w/2,y+h/2,0, x+w/2,y+h/2,w*.8);
+ grd.addColorStop(0, 'rgba(255,107,53,.4)');
+ grd.addColorStop(1, 'transparent');
+ ctx.fillStyle = grd;
+ ctx.fillRect(x, y, w, h);
+ ctx.beginPath();
+ ctx.arc(x+w/2, y+h/2, w*.28, 0, Math.PI*2);
+ ctx.fillStyle = '#ff6b35';
+ ctx.fill();
+ ctx.beginPath();
+ ctx.arc(x+w/2, y+h/2, w*.12, 0, Math.PI*2);
+ ctx.fillStyle = '#fff';
+ ctx.fill();
+ return;
+ }
+ if (type === VISITED) {
+ ctx.fillStyle = '#0b1e2b';
+ ctx.fillRect(x, y, w, h);
+ ctx.fillStyle = 'rgba(0,180,220,.06)';
+ ctx.fillRect(x+1, y+1, w-2, h-2);
+ return;
+ }
+ if (type === FRONTIER) {
+ ctx.fillStyle = '#0d2a3c';
+ ctx.fillRect(x, y, w, h);
+ ctx.strokeStyle = 'rgba(0,212,255,.2)';
+ ctx.lineWidth = 0.5;
+ ctx.strokeRect(x+.5, y+.5, w-1, h-1);
+ return;
+ }
+ if (type === PATH) {
+ const grd = ctx.createRadialGradient(x+w/2,y+h/2,0, x+w/2,y+h/2,w*.6);
+ grd.addColorStop(0, 'rgba(255,220,80,.9)');
+ grd.addColorStop(1, 'rgba(255,180,30,.5)');
+ ctx.fillStyle = grd;
+ ctx.fillRect(x, y, w, h);
+ return;
+ }
+}
+
+function fullDraw() {
+ for (let r = 0; r < ROWS; r++)
+ for (let c = 0; c < COLS; c++)
+ drawCell(r, c, grid[r][c]);
+}
+
+function setMode(m) {
+ mode = m;
+ ['bWall','bStart','bEnd','bErase'].forEach(id => document.getElementById(id).className = '');
+ document.getElementById('b' + m.charAt(0).toUpperCase() + m.slice(1)).className = 'active-' + m;
+}
+setMode('wall');
+
+function cellAt(e) {
+ const rect = C.getBoundingClientRect();
+ const sx = C.width / rect.width, sy = C.height / rect.height;
+ const pt = e.touches ? e.touches[0] : e;
+ return {
+ r: Math.floor((pt.clientY - rect.top) * sy / RH),
+ c: Math.floor((pt.clientX - rect.left) * sx / CW)
+ };
+}
+
+function applyMode(r, c) {
+ if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+ const cur = grid[r][c];
+ if (mode === 'wall') {
+ if (cur === START || cur === END) return;
+ grid[r][c] = WALL; drawCell(r, c, WALL);
+ } else if (mode === 'erase') {
+ if (cur === START || cur === END) return;
+ grid[r][c] = EMPTY; drawCell(r, c, EMPTY);
+ } else if (mode === 'start') {
+ if (cur === END) return;
+ grid[startCell.r][startCell.c] = EMPTY; drawCell(startCell.r, startCell.c, EMPTY);
+ startCell = {r, c}; grid[r][c] = START; drawCell(r, c, START);
+ } else if (mode === 'end') {
+ if (cur === START) return;
+ grid[endCell.r][endCell.c] = EMPTY; drawCell(endCell.r, endCell.c, EMPTY);
+ endCell = {r, c}; grid[r][c] = END; drawCell(r, c, END);
+ }
+}
+
+C.addEventListener('mousedown', e => { mouseDown = true; applyMode(...Object.values(cellAt(e))); });
+C.addEventListener('mousemove', e => { if (mouseDown) applyMode(...Object.values(cellAt(e))); });
+C.addEventListener('mouseup', () => mouseDown = false);
+C.addEventListener('mouseleave', () => mouseDown = false);
+C.addEventListener('touchstart', e => { e.preventDefault(); mouseDown = true; applyMode(...Object.values(cellAt(e))); }, {passive:false});
+C.addEventListener('touchmove', e => { e.preventDefault(); applyMode(...Object.values(cellAt(e))); }, {passive:false});
+C.addEventListener('touchend', () => mouseDown = false);
+
+async function runDijkstra() {
+ if (running) return;
+ running = true;
+ document.getElementById('scanLine').classList.add('active');
+ setStatus('RUNNING', '#00d4ff');
+ setMsg("Running Dijkstra's algorithm...", 'info');
+
+ for (let r = 0; r < ROWS; r++)
+ for (let c = 0; c < COLS; c++) {
+ if (grid[r][c] === VISITED || grid[r][c] === PATH || grid[r][c] === FRONTIER) {
+ grid[r][c] = EMPTY; drawCell(r, c, EMPTY);
+ }
+ }
+ drawCell(startCell.r, startCell.c, START);
+ drawCell(endCell.r, endCell.c, END);
+
+ const dist = Array.from({length: ROWS}, () => Array(COLS).fill(Infinity));
+ const prev = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+ dist[startCell.r][startCell.c] = 0;
+ const pq = [[0, startCell.r, startCell.c]];
+ const dirs = [[0,1],[1,0],[0,-1],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+ const isDiag = (dr, dc) => dr !== 0 && dc !== 0;
+ let visited = 0, found = false;
+ const speed = parseInt(document.getElementById('speedSlider').value);
+ const batchSize = speed * 2;
+
+ while (pq.length) {
+ pq.sort((a, b) => a[0] - b[0]);
+ const [d, r, c] = pq.shift();
+ if (d > dist[r][c]) continue;
+ if (r === endCell.r && c === endCell.c) { found = true; break; }
+ if (grid[r][c] !== START) { grid[r][c] = VISITED; drawCell(r, c, VISITED); visited++; }
+ document.getElementById('sVis').textContent = visited;
+ if (visited % batchSize === 0)
+ await new Promise(res => requestAnimationFrame(res));
+ for (const [dr, dc] of dirs) {
+ const nr = r+dr, nc = c+dc;
+ if (nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+ if (grid[nr][nc] === WALL) continue;
+ const nd = d + (isDiag(dr,dc) ? 1.414 : 1);
+ if (nd < dist[nr][nc]) {
+ dist[nr][nc] = nd; prev[nr][nc] = [r, c]; pq.push([nd, nr, nc]);
+ if (grid[nr][nc] !== START && grid[nr][nc] !== END) {
+ grid[nr][nc] = FRONTIER; drawCell(nr, nc, FRONTIER);
+ }
+ }
+ }
+ }
+
+ document.getElementById('scanLine').classList.remove('active');
+ if (found) {
+ let cur = [endCell.r, endCell.c], pathLen = 0;
+ const pathCells = [];
+ while (cur) {
+ pathCells.push(cur);
+ cur = prev[cur[0]][cur[1]];
+ }
+ for (const [r, c] of pathCells.reverse()) {
+ if (grid[r][c] !== START && grid[r][c] !== END) {
+ grid[r][c] = PATH; drawCell(r, c, PATH);
+ pathLen++;
+ await new Promise(res => setTimeout(res, 12));
+ }
+ }
+ const cost = dist[endCell.r][endCell.c].toFixed(1);
+ document.getElementById('sPth').textContent = pathLen;
+ document.getElementById('sCst').textContent = cost;
+ document.getElementById('sPth').classList.add('highlight');
+ document.getElementById('sCst').classList.add('highlight');
+ setStatus('FOUND', '#39ff7a');
+ setMsg(`Path found! Length: ${pathLen} · Cost: ${cost}`, 'success');
+ } else {
+ setStatus('NO PATH', '#ff6b35');
+ setMsg('No path found \u2014 erase some walls and try again.', 'error');
+ }
+ running = false;
+}
+
+function generateMaze() {
+ if (running) return;
+ initGrid();
+ for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) grid[r][c] = WALL;
+ function carve(r, c) {
+ const dirs = [[0,2],[2,0],[0,-2],[-2,0]].sort(() => Math.random() - .5);
+ for (const [dr, dc] of dirs) {
+ const nr = r+dr, nc = c+dc;
+ if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === WALL) {
+ grid[r+dr/2][c+dc/2] = EMPTY;
+ grid[nr][nc] = EMPTY;
+ carve(nr, nc);
+ }
+ }
+ }
+ grid[1][1] = EMPTY; carve(1, 1);
+ startCell = {r:1, c:1};
+ endCell = {r: ROWS%2===0?ROWS-2:ROWS-2, c: COLS%2===0?COLS-2:COLS-2};
+ if (endCell.r%2===0) endCell.r--;
+ if (endCell.c%2===0) endCell.c--;
+ grid[startCell.r][startCell.c] = START;
+ grid[endCell.r][endCell.c] = END;
+ fullDraw();
+ setMsg('Maze generated! Hit \u25b6 FIND PATH to solve it.', 'info');
+ document.getElementById('sVis').textContent = '0';
+ document.getElementById('sPth').textContent = '\u2014';
+ document.getElementById('sCst').textContent = '\u2014';
+ ['sPth','sCst'].forEach(id => document.getElementById(id).classList.remove('highlight'));
+}
+
+function resetGrid() {
+ if (running) return;
+ startCell = {r:4, c:4}; endCell = {r:ROWS-5, c:COLS-5};
+ initGrid(); fullDraw();
+ ['sPth','sCst'].forEach(id => document.getElementById(id).classList.remove('highlight'));
+ setMsg('Grid reset. Draw walls, or generate a maze.', '');
+}
+
+function setMsg(txt, type) {
+ const el = document.getElementById('msg');
+ el.textContent = txt;
+ el.className = type || '';
+}
+
+initGrid();
+fullDraw();
+</script>
+</body>
+</html>
